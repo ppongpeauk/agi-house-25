@@ -1,6 +1,5 @@
 start_date,end_date,country,disease_0,disease_1,disease_2,disease_3,disease_4,disease_5,disease_6,disease_7,disease_8,disease_9
-2024-01-01,2024-10-20,Ethiopia,,malaria,,,,,,,,,
-2024-06-01,2025-01-31,Ethiopia,,malaria,,,,,,,,,
-2024-11-01,2024-12-31,Ethiopia,,malaria,,,,,,,,,
-2025-01-01,2025-02-19,Ethiopia,,malaria,,,,,,,,,
-2025-03-01,2025-03-23,Ethiopia,,malaria,,,,,,,,,
+2018-09-01,2018-12-31,Ethiopia,0,1,0,0,0,0,0,0,0,0
+2022-09-12,2022-11-27,Ethiopia,0,1,0,0,0,0,0,0,0,0
+2024-01-01,2024-10-20,Ethiopia,0,1,0,0,0,0,0,0,0,0
+2024-12-15,2025-02-21,Ethiopia,0,1,0,0,0,0,0,0,0,0

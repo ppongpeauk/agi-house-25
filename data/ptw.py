@@ -13,6 +13,8 @@ def merge_weather_and_disease_data(weather_file, disease_file, output_file):
     """
     # Read the weather data
     weather_df = pd.read_csv(weather_file)
+    print(f"Weather data shape: {weather_df.shape}")
+    print("Weather data sample:\n", weather_df.head())
 
     # Convert timestamp to date
     weather_df['date'] = pd.to_datetime(weather_df['dt'], unit='s').dt.date
@@ -30,20 +32,26 @@ def merge_weather_and_disease_data(weather_file, disease_file, output_file):
 
     # Read disease data
     disease_df = pd.read_csv(disease_file)
+    print(f"\nDisease data shape: {disease_df.shape}")
+    print("Disease data sample:\n", disease_df.head())
 
     # Convert date column to datetime.date for consistent merging
     disease_df['date'] = pd.to_datetime(disease_df['date']).dt.date
 
-    # Convert disease columns to binary (0 or 1)
+    # Convert disease columns to binary (0 for no outbreak, 1 for outbreak)
     disease_columns = [col for col in disease_df.columns if col.startswith('disease_')]
     for col in disease_columns:
-        # Convert to binary: 1 if not empty/null, 0 otherwise
-        disease_df[col] = disease_df[col].notna().astype(int)
+        # Convert to numeric, then to binary (0 or 1)
+        disease_df[col] = pd.to_numeric(disease_df[col], errors='coerce').fillna(0)
+        disease_df[col] = (disease_df[col] > 0).astype(int)  # Convert to binary: 0 for no outbreak, 1 for outbreak
+        print(f"\n{col} value counts:\n{disease_df[col].value_counts()}")
 
     # Merge weather and disease data
     merged_df = pd.merge(daily_weather, disease_df, on='date', how='left')
+    print(f"\nMerged data shape: {merged_df.shape}")
+    print("Merged data sample:\n", merged_df.head())
 
-    # Fill missing disease values with 0
+    # Fill missing disease values with 0 (no outbreak)
     merged_df[disease_columns] = merged_df[disease_columns].fillna(0)
 
     # Ensure all dates from weather data are present
@@ -60,17 +68,17 @@ def merge_weather_and_disease_data(weather_file, disease_file, output_file):
 
     # Save to output file
     final_df.to_csv(output_file, index=False)
-    print(f"Successfully merged data and saved to {output_file}")
+    print(f"\nSuccessfully merged data and saved to {output_file}")
 
     # Print some statistics
     print(f"\nData Statistics:")
     print(f"Total number of days: {len(final_df)}")
     print(f"Date range: {final_df['date'].min()} to {final_df['date'].max()}")
     print(f"Number of days with disease data: {len(disease_df)}")
-    print("\nDisease occurrence counts:")
+    print("\nDisease outbreak counts:")
     for col in disease_columns:
         count = final_df[col].sum()
-        print(f"{col}: {count} days")
+        print(f"{col}: {count} outbreaks")
 
 if __name__ == "__main__":
     # Get the directory of the current script
