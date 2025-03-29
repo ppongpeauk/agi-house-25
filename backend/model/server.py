@@ -7,6 +7,7 @@ import logging
 import requests
 from datetime import datetime, timedelta
 from model import load_model, predict
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,15 @@ app = FastAPI(
     title="Disease Outbreak Prediction API",
     description="API for predicting disease outbreaks based on environmental conditions",
     version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Disease labels from README
