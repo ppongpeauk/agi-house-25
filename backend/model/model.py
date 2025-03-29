@@ -7,12 +7,10 @@ from pathlib import Path
 import logging
 from torch.utils.data import Dataset, DataLoader
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class OutbreakDataset(Dataset):
-    """Dataset for disease outbreak prediction."""
 
     def __init__(
         self,
@@ -98,20 +96,15 @@ class OutbreakPredictor(nn.Module):
         self.output_size = output_size
         self.disease_vocab_size = disease_vocab_size
         self.disease_embed_dim = disease_embed_dim
-
-        # Disease type embedding
         self.disease_embedding = nn.Embedding(disease_vocab_size, disease_embed_dim)
-
-        # LSTM layers
         self.lstm = nn.LSTM(
-            input_size=input_size + disease_embed_dim,  # Concatenate with disease embedding
+            input_size=input_size + disease_embed_dim,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0
         )
 
-        # Output layers
         self.fc = nn.Sequential(
             nn.Linear(hidden_size, hidden_size // 2),
             nn.ReLU(),
@@ -119,11 +112,9 @@ class OutbreakPredictor(nn.Module):
             nn.Linear(hidden_size // 2, output_size)
         )
 
-        # Initialize weights
         self._init_weights()
 
     def _init_weights(self):
-        """Initialize model weights."""
         for name, param in self.named_parameters():
             if 'weight' in name:
                 nn.init.xavier_normal_(param)

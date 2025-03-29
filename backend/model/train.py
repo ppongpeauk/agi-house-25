@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Main training function."""
-    # Set random seed for reproducibility
     torch.manual_seed(42)
 
     # Configuration
@@ -37,7 +36,6 @@ def main():
         'save_dir': 'checkpoints'
     }
 
-    # Create data loaders
     train_loader, val_loader, test_loader = create_data_loaders(
         config['data_path'],
         config['batch_size'],
@@ -55,7 +53,6 @@ def main():
         dropout=config['dropout']
     )
 
-    # Define loss function and optimizer
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5)
@@ -88,7 +85,6 @@ def main():
             all_test_preds.append(output)
             all_test_targets.append(target)
 
-    # Calculate test metrics
     all_test_preds = torch.cat(all_test_preds, dim=0)
     all_test_targets = torch.cat(all_test_targets, dim=0)
     test_metrics = calculate_metrics(all_test_preds, all_test_targets)
