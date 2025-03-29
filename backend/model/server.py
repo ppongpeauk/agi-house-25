@@ -23,14 +23,14 @@ app = FastAPI(
 DISEASE_LABELS = {
     0: "Cholera",
     1: "Malaria",
-    2: "Unused",
-    3: "Unused",
-    4: "Unused",
-    5: "Unused",
-    6: "Unused",
-    7: "Unused",
-    8: "Unused",
-    9: "Unused"
+    2: "Dengue",
+    3: "Chikungunya",
+    4: "COVID-19",
+    5: "Cutaneous leishmaniasis",
+    6: "Dracunculiasis",
+    7: "Visceral leishmaniasis",
+    8: "Measles",
+    9: "Meningitis"
 }
 
 # Load the model at startup
