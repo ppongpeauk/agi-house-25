@@ -16,7 +16,6 @@ class OutbreakDataset(Dataset):
         self,
         data_path: str,
         sequence_length: int = 7,
-        disease_vocab: Optional[Dict[str, int]] = None
     ):
         """
         Initialize the dataset.
@@ -24,17 +23,9 @@ class OutbreakDataset(Dataset):
         Args:
             data_path (str): Path to the CSV data file
             sequence_length (int): Number of time steps to use for prediction
-            disease_vocab (Optional[Dict[str, int]]): Dictionary mapping disease names to indices
         """
         self.sequence_length = sequence_length
         self.data = pd.read_csv(data_path)
-
-        # Create disease vocabulary if not provided
-        if disease_vocab is None:
-            unique_diseases = self.data['disease_type'].unique()
-            self.disease_vocab = {disease: idx for idx, disease in enumerate(unique_diseases)}
-        else:
-            self.disease_vocab = disease_vocab
 
         # Normalize numerical features
         self.feature_columns = ['temperature', 'humidity', 'precipitation', 'wind_speed']
@@ -42,11 +33,14 @@ class OutbreakDataset(Dataset):
         self.feature_stds = self.data[self.feature_columns].std()
         self.data[self.feature_columns] = (self.data[self.feature_columns] - self.feature_means) / self.feature_stds
 
+        # Get disease columns
+        self.disease_columns = [col for col in self.data.columns if col.startswith('disease_')]
+
     def __len__(self) -> int:
         """Return the number of samples in the dataset."""
         return len(self.data) - self.sequence_length
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Get a sample from the dataset.
 
@@ -56,27 +50,20 @@ class OutbreakDataset(Dataset):
         Returns:
             Tuple containing:
             - Input features tensor
-            - Target tensor (case count and risk score)
-            - Disease type index tensor
+            - Target tensor (disease presence for each disease)
         """
         # Get sequence of features
         features = self.data[self.feature_columns].iloc[idx:idx + self.sequence_length].values
 
-        # Get target values (case count and risk score)
-        target_case_count = self.data['disease_incidence'].iloc[idx + self.sequence_length]
-        target_risk_score = self.data['is_outbreak'].iloc[idx + self.sequence_length]
-        target = torch.tensor([target_case_count, target_risk_score], dtype=torch.float32)
+        # Get target values (disease presence)
+        target = self.data[self.disease_columns].iloc[idx + self.sequence_length].values
 
-        # Get disease type index
-        disease_type = self.data['disease_type'].iloc[idx + self.sequence_length]
-        disease_idx = torch.tensor([self.disease_vocab[disease_type]], dtype=torch.long)
-
-        return torch.FloatTensor(features), target, disease_idx
+        return torch.FloatTensor(features), torch.FloatTensor(target)
 
 class OutbreakPredictor(nn.Module):
     """
     LSTM-based model for predicting disease outbreaks.
-    Predicts both case counts and risk scores (0-1) for potential outbreaks.
+    Predicts presence/absence of multiple diseases.
     """
 
     def __init__(
@@ -84,21 +71,17 @@ class OutbreakPredictor(nn.Module):
         input_size: int,
         hidden_size: int,
         num_layers: int,
-        output_size: int,
-        disease_vocab_size: int,
-        disease_embed_dim: int = 8,
+        num_diseases: int,
         dropout: float = 0.2
     ):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.output_size = output_size
-        self.disease_vocab_size = disease_vocab_size
-        self.disease_embed_dim = disease_embed_dim
-        self.disease_embedding = nn.Embedding(disease_vocab_size, disease_embed_dim)
+        self.num_diseases = num_diseases
+
         self.lstm = nn.LSTM(
-            input_size=input_size + disease_embed_dim,
+            input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -109,7 +92,8 @@ class OutbreakPredictor(nn.Module):
             nn.Linear(hidden_size, hidden_size // 2),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_size // 2, output_size)
+            nn.Linear(hidden_size // 2, num_diseases),
+            nn.Sigmoid()  # Output probabilities for each disease
         )
 
         self._init_weights()
@@ -121,31 +105,16 @@ class OutbreakPredictor(nn.Module):
             elif 'bias' in name:
                 nn.init.zeros_(param)
 
-    def forward(self, x: torch.Tensor, disease_idx: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the model.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, seq_length, input_size)
-            disease_idx (Optional[torch.Tensor]): Disease type indices of shape (batch_size,)
 
         Returns:
-            torch.Tensor: Predictions of shape (batch_size, output_size)
+            torch.Tensor: Predictions of shape (batch_size, num_diseases)
         """
-        batch_size = x.size(0)
-        seq_length = x.size(1)
-
-        # Handle disease embedding
-        if disease_idx is not None:
-            # Get disease embeddings
-            disease_embed = self.disease_embedding(disease_idx)  # (batch_size, embed_dim)
-
-            # Expand disease embedding to match sequence length
-            disease_embed_expanded = disease_embed.expand(batch_size, seq_length, -1)
-
-            # Concatenate with input
-            x = torch.cat((x, disease_embed_expanded), dim=2)
-
         # LSTM forward pass
         lstm_out, _ = self.lstm(x)
 
@@ -155,59 +124,56 @@ class OutbreakPredictor(nn.Module):
         # Get predictions
         output = self.fc(last_hidden)
 
-        # Split output into case count and risk score
-        case_count = output[:, 0]
-        risk_score = torch.sigmoid(output[:, 1])  # Ensure risk score is between 0 and 1
-
-        return torch.stack([case_count, risk_score], dim=1)
+        return output
 
 def calculate_metrics(predictions: torch.Tensor, targets: torch.Tensor) -> Dict[str, float]:
     """
     Calculate various metrics for model evaluation.
 
     Args:
-        predictions (torch.Tensor): Model predictions [case_count, risk_score]
-        targets (torch.Tensor): Ground truth values [case_count, risk_score]
+        predictions (torch.Tensor): Model predictions [num_diseases]
+        targets (torch.Tensor): Ground truth values [num_diseases]
 
     Returns:
         Dict[str, float]: Dictionary containing various metrics
     """
-    # Split predictions and targets
-    case_count_pred, risk_score_pred = predictions[:, 0], predictions[:, 1]
-    case_count_target, risk_score_target = targets[:, 0], targets[:, 1]
+    # Convert predictions to binary using 0.5 threshold
+    pred_binary = (predictions > 0.5).float()
 
-    # Case count metrics
-    case_count_mae = torch.mean(torch.abs(case_count_pred - case_count_target)).item()
-    case_count_rmse = torch.sqrt(torch.mean((case_count_pred - case_count_target) ** 2)).item()
+    # Calculate metrics for each disease
+    metrics = {}
+    for i in range(predictions.size(1)):
+        disease_pred = pred_binary[:, i]
+        disease_target = targets[:, i]
 
-    # Risk score metrics (using 0.5 as threshold)
-    risk_pred_binary = (risk_score_pred > 0.5).float()
-    risk_target_binary = (risk_score_target > 0.5).float()
+        # Calculate accuracy, precision, recall, and F1
+        correct = (disease_pred == disease_target).sum().item()
+        total = len(disease_pred)
+        accuracy = correct / total
 
-    # Calculate accuracy, precision, recall, and F1
-    correct = (risk_pred_binary == risk_target_binary).sum().item()
-    total = len(risk_pred_binary)
-    accuracy = correct / total
+        # Calculate precision and recall
+        true_positives = ((disease_pred == 1) & (disease_target == 1)).sum().item()
+        predicted_positives = (disease_pred == 1).sum().item()
+        actual_positives = (disease_target == 1).sum().item()
 
-    # Calculate precision and recall
-    true_positives = ((risk_pred_binary == 1) & (risk_target_binary == 1)).sum().item()
-    predicted_positives = (risk_pred_binary == 1).sum().item()
-    actual_positives = (risk_target_binary == 1).sum().item()
+        precision = true_positives / predicted_positives if predicted_positives > 0 else 0
+        recall = true_positives / actual_positives if actual_positives > 0 else 0
 
-    precision = true_positives / predicted_positives if predicted_positives > 0 else 0
-    recall = true_positives / actual_positives if actual_positives > 0 else 0
+        # Calculate F1 score
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
 
-    # Calculate F1 score
-    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        metrics[f'disease_{i}_accuracy'] = accuracy
+        metrics[f'disease_{i}_precision'] = precision
+        metrics[f'disease_{i}_recall'] = recall
+        metrics[f'disease_{i}_f1'] = f1
 
-    return {
-        'case_count_mae': case_count_mae,
-        'case_count_rmse': case_count_rmse,
-        'risk_accuracy': accuracy,
-        'risk_precision': precision,
-        'risk_recall': recall,
-        'risk_f1': f1
-    }
+    # Calculate average metrics across all diseases
+    metrics['avg_accuracy'] = np.mean([metrics[f'disease_{i}_accuracy'] for i in range(predictions.size(1))])
+    metrics['avg_precision'] = np.mean([metrics[f'disease_{i}_precision'] for i in range(predictions.size(1))])
+    metrics['avg_recall'] = np.mean([metrics[f'disease_{i}_recall'] for i in range(predictions.size(1))])
+    metrics['avg_f1'] = np.mean([metrics[f'disease_{i}_f1'] for i in range(predictions.size(1))])
+
+    return metrics
 
 def train_model(
     model: OutbreakPredictor,
@@ -263,25 +229,14 @@ def train_model(
         all_train_preds = []
         all_train_targets = []
 
-        for batch_idx, (data, target, disease_idx) in enumerate(train_loader):
+        for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
-            if disease_idx is not None:
-                disease_idx = disease_idx.to(device)
 
             optimizer.zero_grad()
-            output = model(data, disease_idx)
+            output = model(data)
 
-            # Split output into case count and risk score
-            case_count_pred, risk_score_pred = output[:, 0], output[:, 1]
-            case_count_target, risk_score_target = target[:, 0], target[:, 1]
-
-            # Calculate losses with weighted components
-            case_count_loss = criterion(case_count_pred, case_count_target)
-            risk_score_loss = criterion(risk_score_pred, risk_score_target)
-
-            # Combined loss with dynamic weighting based on epoch
-            risk_weight = min(1.0, epoch / 20)  # Ramp up risk weight over first 20 epochs
-            loss = case_count_loss + risk_weight * risk_score_loss
+            # Calculate losses
+            loss = criterion(output, target)
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -315,21 +270,12 @@ def train_model(
         all_val_targets = []
 
         with torch.no_grad():
-            for data, target, disease_idx in val_loader:
+            for data, target in val_loader:
                 data, target = data.to(device), target.to(device)
-                if disease_idx is not None:
-                    disease_idx = disease_idx.to(device)
-                output = model(data, disease_idx)
+                output = model(data)
 
-                # Split output and calculate losses
-                case_count_pred, risk_score_pred = output[:, 0], output[:, 1]
-                case_count_target, risk_score_target = target[:, 0], target[:, 1]
-
-                case_count_loss = criterion(case_count_pred, case_count_target)
-                risk_score_loss = criterion(risk_score_pred, risk_score_target)
-
-                risk_weight = min(1.0, epoch / 20)
-                loss = case_count_loss + risk_weight * risk_score_loss
+                # Calculate losses
+                loss = criterion(output, target)
 
                 val_loss += loss.item()
                 val_batch_count += 1
@@ -356,13 +302,11 @@ def train_model(
         logger.info(f'  Train Loss: {avg_train_loss:.6f}')
         logger.info(f'  Val Loss: {avg_val_loss:.6f}')
         logger.info(f'  Train Metrics:')
-        logger.info(f'    Case Count MAE: {train_metrics["case_count_mae"]:.2f}')
-        logger.info(f'    Risk Accuracy: {train_metrics["risk_accuracy"]:.2%}')
-        logger.info(f'    Risk F1: {train_metrics["risk_f1"]:.2f}')
+        logger.info(f'    Disease Accuracy: {train_metrics["avg_accuracy"]:.2%}')
+        logger.info(f'    Disease F1: {train_metrics["avg_f1"]:.2f}')
         logger.info(f'  Val Metrics:')
-        logger.info(f'    Case Count MAE: {val_metrics["case_count_mae"]:.2f}')
-        logger.info(f'    Risk Accuracy: {val_metrics["risk_accuracy"]:.2%}')
-        logger.info(f'    Risk F1: {val_metrics["risk_f1"]:.2f}')
+        logger.info(f'    Disease Accuracy: {val_metrics["avg_accuracy"]:.2%}')
+        logger.info(f'    Disease F1: {val_metrics["avg_f1"]:.2f}')
 
         # Save best model
         if avg_val_loss < best_val_loss:
@@ -431,64 +375,46 @@ def create_data_loaders(
 def predict(
     model: OutbreakPredictor,
     features: torch.Tensor,
-    disease_idx: Optional[torch.Tensor] = None,
     device: torch.device = torch.device('cpu')
-) -> Tuple[float, float]:
+) -> torch.Tensor:
     """
     Make predictions using the trained model.
 
     Args:
         model (OutbreakPredictor): Trained model
         features (torch.Tensor): Input features tensor of shape (batch_size, seq_length, input_size)
-        disease_idx (Optional[torch.Tensor]): Disease type indices of shape (batch_size,)
         device (torch.device): Device to run inference on
 
     Returns:
-        Tuple containing:
-        - Predicted case count
-        - Predicted risk score (0-1)
+        torch.Tensor: Predictions of shape (batch_size, num_diseases)
     """
     model.eval()
     with torch.no_grad():
         features = features.to(device)
-        if disease_idx is not None:
-            disease_idx = disease_idx.to(device)
-
-        output = model(features, disease_idx)
-        case_count, risk_score = output[0].item(), output[1].item()
-
-        return case_count, risk_score
+        output = model(features)
+        return output
 
 def predict_batch(
     model: OutbreakPredictor,
     features: torch.Tensor,
-    disease_idx: Optional[torch.Tensor] = None,
     device: torch.device = torch.device('cpu')
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
     """
     Make predictions for a batch of samples.
 
     Args:
         model (OutbreakPredictor): Trained model
         features (torch.Tensor): Input features tensor of shape (batch_size, seq_length, input_size)
-        disease_idx (Optional[torch.Tensor]): Disease type indices of shape (batch_size,)
         device (torch.device): Device to run inference on
 
     Returns:
-        Tuple containing:
-        - Predicted case counts tensor
-        - Predicted risk scores tensor
+        torch.Tensor: Predictions of shape (batch_size, num_diseases)
     """
     model.eval()
     with torch.no_grad():
         features = features.to(device)
-        if disease_idx is not None:
-            disease_idx = disease_idx.to(device)
-
-        output = model(features, disease_idx)
-        case_counts, risk_scores = output[:, 0], output[:, 1]
-
-        return case_counts, risk_scores
+        output = model(features)
+        return output
 
 def load_model(
     checkpoint_path: Union[str, Path],
@@ -504,14 +430,18 @@ def load_model(
     Returns:
         OutbreakPredictor: Loaded model
     """
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
+    # Extract hidden size from the checkpoint
+    hidden_size = checkpoint['model_state_dict']['lstm.weight_hh_l0'].size(1)  # Get the hidden size from the second dimension
+    num_layers = len([k for k in checkpoint['model_state_dict'].keys() if 'weight_hh_l' in k])
+
     model = OutbreakPredictor(
-        input_size=checkpoint['model_state_dict']['disease_embedding.weight'].size(1),
-        hidden_size=checkpoint['model_state_dict']['lstm.weight_hh_l0'].size(0),
-        num_layers=len([k for k in checkpoint['model_state_dict'].keys() if 'weight_hh_l' in k]),
-        output_size=2,  # case count and risk score
-        disease_vocab_size=checkpoint['model_state_dict']['disease_embedding.weight'].size(0),
-        disease_embed_dim=checkpoint['model_state_dict']['disease_embedding.weight'].size(1)
+        input_size=4,  # temperature, humidity, precipitation, wind_speed
+        hidden_size=hidden_size,  # Use the hidden size from the checkpoint
+        num_layers=num_layers,
+        num_diseases=10,  # disease_0 through disease_9
+        dropout=0.2
     )
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
@@ -523,25 +453,23 @@ def example_inference():
     model = load_model('checkpoints/best_model.pt')
 
     # Create example input data
-    # This would typically come from your data pipeline
     features = torch.randn(1, 7, 4)  # batch_size=1, seq_length=7, input_size=4
-    disease_idx = torch.tensor([0])  # Assuming cholera is index 0
 
     # Make prediction
-    case_count, risk_score = predict(model, features, disease_idx)
+    predictions = predict(model, features)
 
-    print(f"Predicted case count: {case_count:.2f}")
-    print(f"Predicted risk score: {risk_score:.2%}")
+    print("Predicted disease probabilities:")
+    for i in range(10):
+        print(f"Disease {i}: {predictions[0, i]:.2%}")
 
     # Example batch prediction
     batch_features = torch.randn(32, 7, 4)  # batch_size=32
-    batch_disease_idx = torch.zeros(32, dtype=torch.long)  # All cholera
-
-    case_counts, risk_scores = predict_batch(model, batch_features, batch_disease_idx)
+    batch_predictions = predict_batch(model, batch_features)
 
     print("\nBatch predictions:")
-    print(f"Average case count: {case_counts.mean():.2f}")
-    print(f"Average risk score: {risk_scores.mean():.2%}")
+    print(f"Average probability for each disease:")
+    for i in range(10):
+        print(f"Disease {i}: {batch_predictions[:, i].mean():.2%}")
 
 if __name__ == "__main__":
     example_inference()

@@ -26,9 +26,7 @@ def main():
         'input_size': 4,  # temperature, humidity, precipitation, wind_speed
         'hidden_size': 64,
         'num_layers': 2,
-        'output_size': 2,  # case count and risk score
-        'disease_vocab_size': 1,  # Only cholera for now
-        'disease_embed_dim': 8,
+        'num_diseases': 10,  # disease_0 through disease_9
         'dropout': 0.2,
         'learning_rate': 0.001,
         'num_epochs': 100,
@@ -47,13 +45,11 @@ def main():
         input_size=config['input_size'],
         hidden_size=config['hidden_size'],
         num_layers=config['num_layers'],
-        output_size=config['output_size'],
-        disease_vocab_size=config['disease_vocab_size'],
-        disease_embed_dim=config['disease_embed_dim'],
+        num_diseases=config['num_diseases'],
         dropout=config['dropout']
     )
 
-    criterion = nn.MSELoss()
+    criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5)
 
@@ -78,8 +74,8 @@ def main():
     all_test_targets = []
 
     with torch.no_grad():
-        for data, target, disease_idx in test_loader:
-            output = model(data, disease_idx)
+        for data, target in test_loader:
+            output = model(data)
             loss = criterion(output, target)
             test_loss += loss.item()
             all_test_preds.append(output)
@@ -93,8 +89,18 @@ def main():
     logger.info("Training completed!")
     logger.info(f"Final test loss: {test_loss / len(test_loader):.6f}")
     logger.info("Test metrics:")
-    for metric_name, value in test_metrics.items():
-        logger.info(f"  {metric_name}: {value:.4f}")
+    logger.info(f"  Average Accuracy: {test_metrics['avg_accuracy']:.4f}")
+    logger.info(f"  Average Precision: {test_metrics['avg_precision']:.4f}")
+    logger.info(f"  Average Recall: {test_metrics['avg_recall']:.4f}")
+    logger.info(f"  Average F1: {test_metrics['avg_f1']:.4f}")
+
+    # Log individual disease metrics
+    for i in range(config['num_diseases']):
+        logger.info(f"\nDisease {i} metrics:")
+        logger.info(f"  Accuracy: {test_metrics[f'disease_{i}_accuracy']:.4f}")
+        logger.info(f"  Precision: {test_metrics[f'disease_{i}_precision']:.4f}")
+        logger.info(f"  Recall: {test_metrics[f'disease_{i}_recall']:.4f}")
+        logger.info(f"  F1: {test_metrics[f'disease_{i}_f1']:.4f}")
 
 if __name__ == "__main__":
     main()
