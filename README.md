@@ -12,7 +12,7 @@
 | 6             | Dracunculiasis             |
 | 7             | Visceral leishmaniasis     |
 | 8             | Measles                    |
-| 9             | Meningitis/Yellow fever    |
+| 9             | Meningitis                 |
 
 ## Getting Started
 Create a new conda environment using `environment.yml`.
