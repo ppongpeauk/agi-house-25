@@ -9,7 +9,7 @@ const INITIAL_VIEW_STATE = {
   longitude: 40.489673,
   zoom: 6.5,
   bearing: 35,
-  pitch: 60
+  pitch: 40
 };
 
 const terrainLayer = {
