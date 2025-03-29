@@ -146,7 +146,8 @@ def fetch_weather_data(timestamp: int, latitude: float, longitude: float) -> Lis
         response.raise_for_status()
         data = response.json()
 
-        logger.info(f"Received API response with daily data keys: {data['daily'].keys()}")
+        # Log the raw response for debugging
+        logger.info(f"Raw API response: {data}")
 
         # Extract and format weather data
         weather_data = []
@@ -169,16 +170,25 @@ def fetch_weather_data(timestamp: int, latitude: float, longitude: float) -> Lis
             # Get the date for this data point
             date = daily_data["time"][i]
 
-            # Extract weather data with default values for None
+            # Extract weather data with better null handling
             weather_point = {
-                "temperature": float(daily_data["temperature_2m_mean"][i] or 0.0),
-                "humidity": float(daily_data["relative_humidity_2m_mean"][i] or 0.0),
-                "precipitation": float(daily_data["precipitation_sum"][i] or 0.0),
-                "wind_speed": float(daily_data["wind_speed_10m_mean"][i] or 0.0)
+                "temperature": daily_data["temperature_2m_mean"][i],
+                "humidity": daily_data["relative_humidity_2m_mean"][i],
+                "precipitation": daily_data["precipitation_sum"][i],
+                "wind_speed": daily_data["wind_speed_10m_mean"][i]
             }
 
-            # Log each weather point for debugging
-            logger.info(f"Weather data point for {date}: {weather_point}")
+            # Log raw values before conversion
+            logger.info(f"Raw weather values for {date}: {weather_point}")
+
+            # Convert to float, handling None values
+            weather_point = {
+                k: float(v) if v is not None else 0.0
+                for k, v in weather_point.items()
+            }
+
+            # Log converted values
+            logger.info(f"Converted weather values for {date}: {weather_point}")
 
             weather_data.append(weather_point)
 
