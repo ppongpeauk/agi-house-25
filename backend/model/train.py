@@ -20,7 +20,7 @@ def main():
 
     # Configuration
     config = {
-        'data_path': 'dummy_data.csv',
+        'data_path': 'merged_data.csv',
         'batch_size': 32,
         'sequence_length': 7,
         'input_size': 4,  # temperature, humidity, precipitation, wind_speed
