@@ -1,0 +1,4 @@
+dt,dt_iso,timezone,city_name,lat,lon,temp,visibility,dew_point,feels_like,temp_min,temp_max,pressure,sea_level,grnd_level,humidity,wind_speed,wind_deg,wind_gust,rain_1h,rain_3h,snow_1h,snow_3h,clouds_all,weather_id,weather_main,weather_description,weather_icon
+1420070400,2015-01-01 00:00:00 +0000 UTC,10800,Ethiopia,9.145,40.489673,12.2,,-0.28,10.57,11.62,13.27,1015,,,42,1.13,136,,,,,,0,800,Clear,sky is clear,01n
+
+
