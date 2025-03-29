@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Map, { Source, Layer, FillLayer, LineLayer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-const MAPBOX_TOKEN = 'pk.eyJ1IjoiYW1haGpvb3IiLCJhIjoiY204dW1uMG92MG1yMzJwcHk2N3RseGU2dyJ9.P0bJ4tkpNtObYlNMwZNaBA';
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiYW1haGpvb3IiLCJhIjoiY204dW5taXF4MGV5ZzJocHU2ZXN1dmF2ZSJ9.1F16vQip5TVHSmDEICW9HQ';
 
 const INITIAL_VIEW_STATE = {
   latitude: 9.145,
@@ -129,4 +129,4 @@ const MapComponent = () => {
   );
 };
 
-export default MapComponent; 
+export default MapComponent;
