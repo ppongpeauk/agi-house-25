@@ -66,10 +66,14 @@ for tiff_file in tqdm(tiff_files):
     base_name = os.path.basename(tiff_file).replace('.tif', '')
     output_file = os.path.join(output_dir, f"{base_name}_ethiopia_precise.csv")
     
-    # Extract date from filename (format: chirps-v2.0.YYYY.MM.tif)
+    # Extract date from filename (format: chirps-v2.0.YYYY.MM.DD.tif)
     parts = base_name.split('.')
     year = parts[2]
     month = parts[3]
+    day = parts[4]  # Extract day from the filename
+    
+    # Create date string in ISO format
+    date_str = f"{year}-{month}-{day}"
     
     try:
         # Open the raster file
@@ -114,7 +118,9 @@ for tiff_file in tqdm(tiff_files):
                     'latitude': ys,
                     'precipitation': sampled_values,
                     'year': year,
-                    'month': month
+                    'month': month,
+                    'day': day,  # Add day column
+                    'date': date_str  # Add full date string
                 })
                 
                 # Save to CSV
