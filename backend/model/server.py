@@ -82,7 +82,8 @@ class InferenceResponse(BaseModel):
     """Response model for the inference endpoint."""
     predictions: List[DiseasePrediction]
     weather_data: List[Dict[str, float]]
-    location: Dict[str, float]  # Added location info to response
+    location: Dict[str, float]
+    selected_date_weather: Dict[str, float]  # Added selected date's weather data
 
     class Config:
         json_schema_extra = {
@@ -102,6 +103,11 @@ class InferenceResponse(BaseModel):
                 "location": {
                     "latitude": 9.0,
                     "longitude": 39.5
+                },
+                "selected_date_weather": {
+                    "temperature": 25.5,
+                    "humidity": 60.0,
+                    "wind_speed": 10.0
                 }
             }
         }
@@ -231,7 +237,7 @@ async def make_inference(request: InferenceRequest):
 
     Returns:
         InferenceResponse: Contains predicted probabilities for each disease, weather data used,
-                         and the location coordinates
+                         the location coordinates, and the selected date's weather data
 
     Raises:
         HTTPException: If there's an error during weather data fetching or inference
@@ -245,6 +251,13 @@ async def make_inference(request: InferenceRequest):
                 status_code=500,
                 detail=f"Expected 7 weather data points, got {len(weather_data)}"
             )
+
+        # Get the selected date's weather data (last day in the weather_data list)
+        selected_date_weather = {
+            "temperature": weather_data[-1]["temperature"],
+            "humidity": weather_data[-1]["humidity"],
+            "wind_speed": weather_data[-1]["wind_speed"]
+        }
 
         # Convert weather data to tensor
         features = []
@@ -276,7 +289,8 @@ async def make_inference(request: InferenceRequest):
             location={
                 "latitude": request.latitude,
                 "longitude": request.longitude
-            }
+            },
+            selected_date_weather=selected_date_weather
         )
 
     except Exception as e:
