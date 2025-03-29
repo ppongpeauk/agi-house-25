@@ -1,0 +1,5 @@
+start_date,end_date,country,disease_0,disease_1,disease_2,disease_3,disease_4,disease_5,disease_6,disease_7,disease_8,disease_9
+2015-10-18,2015-12-31,Ethiopia,0,0,0,0,0,0,0,0,0,1
+2021-12-12,2022-03-03,Ethiopia,0,0,0,0,0,0,0,0,0,1
+2022-04-01,2022-08-31,Ethiopia,0,0,0,0,0,0,0,0,0,1
+2023-01-01,2023-03-31,Ethiopia,0,0,0,0,0,0,0,0,0,1 

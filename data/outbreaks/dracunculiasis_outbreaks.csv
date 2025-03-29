@@ -1,0 +1,3 @@
+start_date,end_date,country,disease_0,disease_1,disease_2,disease_3,disease_4,disease_5,disease_6,disease_7,disease_8,disease_9
+2016-02-01,2016-07-31,Ethiopia,0,0,0,0,0,0,1,0,0,0
+2017-01-01,2017-12-31,Ethiopia,0,0,0,0,0,0,1,0,0,0 

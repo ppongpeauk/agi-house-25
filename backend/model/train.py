@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from pathlib import Path
 import logging
+import os
 from model import (
     OutbreakPredictor,
     train_model,
@@ -18,9 +19,12 @@ def main():
     """Main training function."""
     torch.manual_seed(42)
 
+    # Get the current directory path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
     # Configuration
     config = {
-        'data_path': 'merged_data.csv',
+        'data_path': os.path.join(current_dir, 'merged_data.csv'),
         'batch_size': 32,
         'sequence_length': 7,
         'input_size': 4,  # temperature, humidity, precipitation, wind_speed
@@ -31,8 +35,12 @@ def main():
         'learning_rate': 0.001,
         'num_epochs': 100,
         'early_stopping_patience': 10,
-        'save_dir': 'checkpoints'
+        'save_dir': os.path.join(current_dir, 'checkpoints')
     }
+
+    # Print the data path for debugging
+    logger.info(f"Looking for data at: {config['data_path']}")
+    logger.info(f"Save directory: {config['save_dir']}")
 
     train_loader, val_loader, test_loader = create_data_loaders(
         config['data_path'],

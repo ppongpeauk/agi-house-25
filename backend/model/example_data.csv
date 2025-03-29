@@ -1,2 +1,2 @@
-date,temperature,humidity,precipitation,wind_speed,disease_0,disease_1,disease_2,disease_3,disease_4,disease_5,disease_6,disease_7,disease_8,disease_9
-2011-07-15,29.91,73.46,26.7,8.71,1,0,0,0,0,0,0,0,0,0
+date      , temperature, humidity, precipitation, wind_speed, disease_0, disease_1, disease_2, disease_3, disease_4, disease_5, disease_6, disease_7, disease_8, disease_9
+2011-07-15,       29.91,    73.46,          26.7,       8.71,         1,         0,         0,         0,         0,         0,         0,         0,         0,         0
