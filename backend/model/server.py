@@ -377,7 +377,7 @@ async def get_disease_research(request: ResearchRequest):
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a medical research assistant. Provide concise, factual information about disease outbreaks, focusing on historical context, symptoms, prevention, and current status. Keep responses clear and informative."
+                    "content": "You are an assistant that gives short information about outbreaks. Don't format it fancily. Just plaintext only"
                 },
                 {
                     "role": "user",
