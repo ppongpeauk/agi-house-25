@@ -67,68 +67,6 @@ export function DiseaseRiskPanel() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Location */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-white/70">Location</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <label className="text-xs text-white/50">Latitude</label>
-            <input
-              type="number"
-              value={latitude}
-              onChange={(e) => setLatitude(parseFloat(e.target.value))}
-              className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
-              placeholder="Latitude"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-white/50">Longitude</label>
-            <input
-              type="number"
-              value={longitude}
-              onChange={(e) => setLongitude(parseFloat(e.target.value))}
-              className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
-              placeholder="Longitude"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Date Picker */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-white/70">Select Date</h3>
-        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={setDate}
-            className="text-white"
-            classNames={{
-              months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-              month: "space-y-4",
-              caption: "flex justify-center pt-1 relative items-center text-white/70",
-              caption_label: "text-sm font-medium",
-              nav: "space-x-1 flex items-center",
-              nav_button: "h-7 w-7 bg-white/5 rounded-md hover:bg-white/10 flex items-center justify-center",
-              table: "w-full border-collapse space-y-1",
-              head_row: "flex",
-              head_cell: "text-white/50 rounded-md w-9 font-normal text-[0.8rem]",
-              row: "flex w-full mt-2",
-              cell: "text-center text-sm relative [&:has([aria-selected])]:bg-cyan-500/20 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-              day: "h-9 w-9 p-0 font-normal text-white/70 hover:bg-white/10 rounded-md",
-              day_selected: "bg-cyan-500 !text-white hover:bg-cyan-500",
-              day_today: "bg-white/5 text-white",
-              day_outside: "text-white/30",
-              day_disabled: "text-white/30",
-              day_hidden: "invisible",
-            }}
-            components={{
-              IconLeft: () => <ChevronLeft className="h-4 w-4 text-white/70" />,
-              IconRight: () => <ChevronRight className="h-4 w-4 text-white/70" />,
-            }}
-          />
-        </div>
-      </div>
 
       {/* Disease Risks */}
       <div className="space-y-3">

@@ -8,6 +8,11 @@ import requests
 from datetime import datetime, timedelta
 from model import load_model, predict
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -304,6 +309,107 @@ async def make_inference(request: InferenceRequest):
 async def health_check():
     """Health check endpoint to verify the API is running."""
     return {"status": "healthy", "model_loaded": model is not None}
+
+class ResearchRequest(BaseModel):
+    """Request model for the research endpoint."""
+    disease: str
+    location: str
+    timestamp: int  # Unix timestamp in seconds
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "disease": "Cholera",
+                "location": "Ethiopia",
+                "timestamp": 1743281852
+            }
+        }
+
+class ResearchResponse(BaseModel):
+    """Response model for the research endpoint."""
+    research: str
+    date: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "research": "Research findings about Cholera in Ethiopia...",
+                "date": "January 31, 2024"
+            }
+        }
+
+@app.post("/research", response_model=ResearchResponse)
+async def get_disease_research(request: ResearchRequest):
+    """
+    Get AI-generated research about a specific disease outbreak in a location on a given date.
+
+    Args:
+        request (ResearchRequest): Contains disease name, location, and timestamp
+
+    Returns:
+        ResearchResponse: Contains the research findings and human-readable date
+    """
+    try:
+        # Convert timestamp to human readable date
+        date = datetime.fromtimestamp(request.timestamp)
+        formatted_date = date.strftime("%B %d, %Y")
+
+        # Construct the prompt
+        prompt = f"{request.disease} outbreaks in {request.location} {formatted_date}"
+
+        # Get Perplexity API key from environment
+        api_key = os.getenv("PERPLEXITY_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="Perplexity API key not configured"
+            )
+
+        # Make request to Perplexity API
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "sonar",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a medical research assistant. Provide concise, factual information about disease outbreaks, focusing on historical context, symptoms, prevention, and current status. Keep responses clear and informative."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.2,
+            "max_tokens": 500
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+
+        research = response.json()["choices"][0]["message"]["content"]
+
+        return ResearchResponse(
+            research=research,
+            date=formatted_date
+        )
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Perplexity API request failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch research data: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Error during research: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error during research: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn
