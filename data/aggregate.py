@@ -110,7 +110,7 @@ def main():
     # Configuration
     START_YEAR = 2015
     END_YEAR = 2025
-    OUTBREAKS_DIR = './data/outbreaks'
+    OUTBREAKS_DIR = './outbreaks'
     OUTPUT_FILE = './diseases_by_date.csv'
 
     # Ensure the output directory exists
